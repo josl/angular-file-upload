@@ -75,6 +75,25 @@ module
                 angular.forEach(list, function(file) {
                     var item = this._getFileOrFileLikeObject(file);
 
+                    // Create BLOBS and attach them to the item.
+                    // Chunks of 1 Mb
+                    var chunkSize = 1024*1024;
+                    var blobList = [];
+
+                    var ini = 0;
+                    var end = chunkSize;
+                    var size = file.size;
+
+                    while (ini < size) {
+                    var blob = file.slice(ini, end);
+                      blobList.push({chunk: blob, size : chunkSize});
+                      ini = end;
+                      end = ini + chunkSize;
+                    }
+
+                    // Including blobs in to the item options
+                    angular.extend(options, {blobs: blobList});
+
                     if (this._isValidFile(item, arrayOfFilters, options)) {
                         var input = this.isFile(item) ? null : file;
                         var fileItem = new FileUploader.FileItem(this, item, options, input);
@@ -130,6 +149,16 @@ module
 
                 this.isUploading = true;
                 this[transport](item);
+
+                item.formData[0].nChunks = item.blobs.length;
+                item.formData[0].fileName = item.file.name;
+                item.formData[0].chunkSize = item.blobs.chunkSize;
+                for(var i = 0; i < item.blobs.length; i += 1) {
+                   // Modify item.formData with Chunk ID
+                   item.formData[0].chunkID = i;
+                   this[ transport ](item, item.blobs[i], i);
+                }
+
             };
             /**
              * Cancels uploading of item from the queue
@@ -432,7 +461,7 @@ module
              * @param {FileItem} item
              * @private
              */
-            FileUploader.prototype._xhrTransport = function(item) {
+            FileUploader.prototype._xhrTransport = function(item, blob, chunkID) {
                 var xhr = item._xhr = new XMLHttpRequest();
                 var form = new FormData();
                 var that = this;
@@ -445,20 +474,28 @@ module
                     });
                 });
 
-                form.append(item.alias, item._file);
+                //form.append(item.alias, item._file);
+                form.append('blob', blob.chunk);
+                form.append('blobID', chunkID);
 
                 xhr.upload.onprogress = function(event) {
-                    var progress = Math.round(event.lengthComputable ? event.loaded * 100 / event.total : 0);
+                    //var progress = Math.round(event.lengthComputable ? event.loaded * 100 / event.total : 0);
+                    var progress = (parseFloat(item.blobsUploaded * 100) / parseFloat(item.blobs.length));
                     that._onProgressItem(item, progress);
                 };
 
                 xhr.onload = function() {
+                    item.blobsUploaded += 1;
                     var headers = that._parseHeaders(xhr.getAllResponseHeaders());
                     var response = that._transformResponse(xhr.response);
                     var gist = that._isSuccessCode(xhr.status) ? 'Success' : 'Error';
-                    var method = '_on' + gist + 'Item';
-                    that[method](item, response, xhr.status, headers);
-                    that._onCompleteItem(item, response, xhr.status, headers);
+                    // Only when all the blobs are being uploaded, it can be sucess
+                    if (item.blobsUploaded == item.blobs.length){
+                      var method = '_on' + gist + 'Item';
+                      that[method](item, response, xhr.status, headers);
+                      that._onCompleteItem(item, response, xhr.status, headers);
+                    }
+
                 };
 
                 xhr.onerror = function() {
@@ -746,6 +783,7 @@ module
                     isCancel: false,
                     isError: false,
                     progress: 0,
+                    blobsUploaded : 0,
                     index: null,
                     _file: file
                 });
