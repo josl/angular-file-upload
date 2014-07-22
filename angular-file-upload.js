@@ -107,7 +107,7 @@ module
                     }
 
                     // Including blobs in to the item options
-                    angular.extend(options, {blobs: blobList});
+                    options.blobs = blobList;
 
                     if (this._isValidFile(item, arrayOfFilters, options)) {
                         var input = this.isFile(item) ? null : file;

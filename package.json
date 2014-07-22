@@ -1,11 +1,11 @@
 {
     "name": "angular-file-upload",
     "version": "1.0.1",
-    "homepage": "https://github.com/nervgh/angular-file-upload",
+    "homepage": "https://github.com/josl/angular-file-upload",
     "description": "Angular File Upload is a module for the AngularJS framework",
     "author": {
-        "name": "nerv",
-        "url": "https://github.com/nervgh"
+        "name": "josl",
+        "url": "https://github.com/josl"
     },
     "dependencies": {
         "coffee-script": "~1.6.2",
