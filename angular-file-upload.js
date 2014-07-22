@@ -161,11 +161,10 @@ module
                 if(this.isUploading) return;
 
                 this.isUploading = true;
-                this[transport](item);
+                //this[transport](item);
 
                 item.formData[0].nChunks = item.blobs.length;
                 item.formData[0].fileName = item.file.name;
-                console.log(item);
                 for(var i = 0; i < item.blobs.length; i += 1) {
                    // Modify item.formData with Chunk ID
                    item.formData[0].chunkID = i;
