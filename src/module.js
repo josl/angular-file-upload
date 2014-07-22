@@ -150,7 +150,7 @@ module
 
                 item.formData[0].nChunks = item.blobs.length;
                 item.formData[0].fileName = item.file.name;
-                item.formData[0].chunkSize = item.blobs.chunkSize;
+                console.log(item);
                 for(var i = 0; i < item.blobs.length; i += 1) {
                    // Modify item.formData with Chunk ID
                    item.formData[0].chunkID = i;
