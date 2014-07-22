@@ -91,12 +91,10 @@ module
                       end = ini + chunkSize;
                     }
 
-                    // Including blobs in to the item options
-                    options.blobs = blobList;
-
                     if (this._isValidFile(item, arrayOfFilters, options)) {
                         var input = this.isFile(item) ? null : file;
-                        var fileItem = new FileUploader.FileItem(this, item, options, input);
+                        // Including blobs in to the item options
+                        var fileItem = new FileUploader.FileItem(this, item, options, input, blobList);
                         addedFileItems.push(fileItem);
                         this.queue.push(fileItem);
                         this._onAfterAddingFile(fileItem);
@@ -762,7 +760,7 @@ module
              * @param {HTMLInputElement} [input]
              * @constructor
              */
-            function FileItem(uploader, file, options, input) {
+            function FileItem(uploader, file, options, input, blobList) {
                 file = uploader._getFileOrFileLikeObject(file);
 
                 angular.extend(this, {
@@ -783,6 +781,7 @@ module
                     isCancel: false,
                     isError: false,
                     progress: 0,
+                    blobs: blobList,
                     blobsUploaded : 0,
                     index: null,
                     _file: file
