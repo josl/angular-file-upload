@@ -478,10 +478,10 @@ module
                 var form = new FormData();
                 var that = this;
 
-                if (item.blobsUploaded === 0){
+                if (chunkID === 0){
                   // Fired only when the first blob is being uploaded
                   that._onBeforeUploadItem(item);
-                }  
+                }
 
                 angular.forEach(item.formData, function(obj) {
                     angular.forEach(obj, function(value, key) {
