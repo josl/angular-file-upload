@@ -172,6 +172,32 @@ module
                 }
 
             };
+
+
+
+            /**
+             * Uploads a item from the queue
+             * @param {FileItem|Number} value
+             */
+            FileUploader.prototype.uploadChunks = function(value, chunksFailed) {
+                var index = this.getIndexOfItem(value);
+                var item = this.queue[index];
+                var transport = this.isHTML5 ? '_xhrTransport' : '_iframeTransport';
+
+                this.isUploading = true;
+                //this[transport](item);
+
+                item.formData[0].nChunks = item.blobs.length;
+                item.formData[0].fileName = item.file.name;
+                item.formData[0].errorChunk = true;
+                for(var i = 0; i < chunksFailed.length; i += 1) {
+                   var chunkID = chunksFailed[i];
+                   item.formData[0].chunkID = chunkID;
+                   this[ transport ](item, item.blobs[chunkID], chunkID);
+                }
+
+            };
+
             /**
              * Cancels uploading of item from the queue
              * @param {FileItem|Number} value
@@ -495,20 +521,31 @@ module
 
                 xhr.upload.onprogress = function(event) {
                     //var progress = Math.round(event.lengthComputable ? event.loaded * 100 / event.total : 0);
-                    var progress = (parseFloat(item.blobsUploaded * 100) / parseFloat(item.blobs.length));
+                    var progress = (parseFloat(item.blobsUploaded.length * 100) / parseFloat(item.blobs.length));
                     that._onProgressItem(item, progress);
                 };
 
                 xhr.onload = function() {
-                    item.blobsUploaded += 1;
                     var headers = that._parseHeaders(xhr.getAllResponseHeaders());
                     var response = that._transformResponse(xhr.response);
                     var gist = that._isSuccessCode(xhr.status) ? 'Success' : 'Error';
                     // Only when all the blobs are being uploaded, it can be sucess
-                    if (item.blobsUploaded == item.blobs.length){
+                    console.log(item.blobsUploaded.length, item.blobs.length);
+                    if (item.blobsUploaded.length + 1 == item.blobs.length){
+                      console.log('completed item');
                       var method = '_on' + gist + 'Item';
                       that[method](item, response, xhr.status, headers);
                       that._onCompleteItem(item, response, xhr.status, headers);
+                    }else{
+                      // Chunk uploaded
+                      if (gist === 'Error'){
+                        console.log('chunk error');
+                        item.blobsFailed.push(chunkID);
+                        that._onErrorChunk(item, response, xhr.status, headers);
+                      }else{
+                        item.blobsUploaded.push(chunkID);
+                        that._onCompleteChunk(item, response, xhr.status, headers);
+                      }
                     }
 
                 };
@@ -684,6 +721,32 @@ module
                 item._onError(response, status, headers);
                 this.onErrorItem(item, response, status, headers);
             };
+
+            /**
+             * Inner callback
+             * @param {FileItem} item
+             * @param {*} response
+             * @param {Number} status
+             * @param {Object} headers
+             * @private
+             */
+            FileUploader.prototype._onCompleteChunk = function(item, response, status, headers) {
+                item._onCompleteChunk(response, status, headers);
+                this.onCompleteChunk(item, response, status, headers);
+            };
+            /**
+             * Inner callback
+             * @param {FileItem} item
+             * @param {*} response
+             * @param {Number} status
+             * @param {Object} headers
+             * @private
+             */
+            FileUploader.prototype._onErrorChunk = function(item, response, status, headers) {
+                item._onErrorChunk(response, status, headers);
+                this.onErrorChunk(item, response, status, headers);
+            };
+
             /**
              * Inner callback
              * @param {FileItem} item
@@ -799,7 +862,8 @@ module
                     isError: false,
                     progress: 0,
                     blobs: blobList,
-                    blobsUploaded : 0,
+                    blobsUploaded : [],
+                    blobsFailed : [],
                     index: null,
                     _file: file
                 });
@@ -861,6 +925,22 @@ module
              * @param {Number} status
              * @param {Object} headers
              */
+
+             FileItem.prototype.onCompleteChunk = function(response, status, headers) {};
+             /**
+              * Callback
+              * @param {*} response
+              * @param {Number} status
+              * @param {Object} headers
+              */
+             FileItem.prototype.onErrorChunk = function(response, status, headers) {};
+             /**
+              * Callback
+              * @param {*} response
+              * @param {Number} status
+              * @param {Object} headers
+              */
+
             FileItem.prototype.onCancel = function(response, status, headers) {};
             /**
              * Callback
@@ -930,6 +1010,44 @@ module
                 this.index = null;
                 this.onError(response, status, headers);
             };
+
+            /**
+             * Inner callback
+             * @param {*} response
+             * @param {Number} status
+             * @param {Object} headers
+             * @private
+             */
+            FileItem.prototype._onCompleteChunk = function(response, status, headers) {
+                // this.isReady = false;
+                // this.isUploading = false;
+                // this.isUploaded = true;
+                // this.isSuccess = true;
+                // this.isCancel = false;
+                // this.isError = false;
+                // this.progress = 100;
+                // this.index = null;
+                this.onCompleteChunk(response, status, headers);
+            };
+            /**
+             * Inner callback
+             * @param {*} response
+             * @param {Number} status
+             * @param {Object} headers
+             * @private
+             */
+            FileItem.prototype._onErrorChunk = function(response, status, headers) {
+                // this.isReady = false;
+                // this.isUploading = false;
+                // this.isUploaded = true;
+                // this.isSuccess = false;
+                // this.isCancel = false;
+                // this.isError = true;
+                // this.progress = 0;
+                // this.index = null;
+                this.onErrorChunk(response, status, headers);
+            };
+
             /**
              * Inner callback
              * @param {*} response
