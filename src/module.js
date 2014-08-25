@@ -494,6 +494,7 @@ module
                   that._onBeforeUploadItem(item);
                 }
 
+                // Send metadata to upload
                 angular.forEach(item.formData, function(obj) {
                     angular.forEach(obj, function(value, key) {
                         form.append(key, value);
@@ -501,8 +502,9 @@ module
                 });
 
                 //form.append(item.alias, item._file);
+                // item.alias = 'file'. Since we are uploading blobs, need to be changed
                 form.append('blob', blob.chunk);
-                form.append('blobID', chunkID);
+                //form.append('blobID', chunkID);
 
                 xhr.upload.onprogress = function(event) {
                     //var progress = Math.round(event.lengthComputable ? event.loaded * 100 / event.total : 0);
@@ -516,7 +518,7 @@ module
                     var gist = that._isSuccessCode(xhr.status) ? 'Success' : 'Error';
                     // Only when all the blobs are being uploaded, it can be sucess
                     console.log(item.blobsUploaded.length, item.blobs.length);
-                    if (item.blobsUploaded.length + 1 == item.blobs.length){
+                    if ((item.blobsUploaded.length + 1) === item.blobs.length){
                       console.log('completed item');
                       var method = '_on' + gist + 'Item';
                       that[method](item, response, xhr.status, headers);
@@ -536,6 +538,8 @@ module
                 };
 
                 xhr.onerror = function() {
+                    // TODO: implement onErrorChunk
+                    console.log('Chunk error: client');
                     var headers = that._parseHeaders(xhr.getAllResponseHeaders());
                     var response = that._transformResponse(xhr.response);
                     that._onErrorItem(item, response, xhr.status, headers);
@@ -543,6 +547,7 @@ module
                 };
 
                 xhr.onabort = function() {
+                    // TODO: implement onAbortChunk//onCancel
                     var headers = that._parseHeaders(xhr.getAllResponseHeaders());
                     var response = that._transformResponse(xhr.response);
                     that._onCancelItem(item, response, xhr.status, headers);
