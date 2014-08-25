@@ -523,10 +523,15 @@ module
                     //if (item.blobsUploaded.length + 1 === item.blobs.length){
                     //if (response.state === 'Success'){
                     if (response.files_after.length === item.blobs.length){
-                      console.log('completed item', item.blobsUploaded, response);
 
+                      console.log('completed item (1)', response);
                       var method = '_xhrTransportMerge';
-                      that[method](item);
+                      if (item.chunksSaved === false){
+                        console.log('completed item (2)', response);
+                        that[method](item);
+                        item.chunksSaved = true;
+                      }
+
                       //that._onCompleteItem(item, response, xhr.status, headers);
 
                     }else{
@@ -929,6 +934,7 @@ module
                     blobsUploaded : [],
                     blobsFailed : [],
                     index: null,
+                    chunksSaved : false,
                     _file: file
                 });
 
