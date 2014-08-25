@@ -541,7 +541,7 @@ module
                       console.log('completed item', item.blobsUploaded, response);
 
                       var method = '_xhrTransportMerge';
-                      that[method](item, item.blobs.length);
+                      that[method](item);
                       //that._onCompleteItem(item, response, xhr.status, headers);
 
                     }else{
@@ -604,8 +604,9 @@ module
                         form.append(key, value);
                     });
                 });
+                console.log(item.formData, form);
 
-                form.append(item.alias, item._file);
+                //form.append(item.alias, item._file);
                 form.append('blobs', item.blobs.length);
 
                 xhr.onload = function() {
