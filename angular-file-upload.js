@@ -165,10 +165,12 @@ module
 
                 item.formData[0].nChunks = item.blobs.length;
                 item.formData[0].fileName = item.file.name;
+                console.log('uploading item', item.file.name , item.blobs.length );
                 for(var i = 0; i < item.blobs.length; i += 1) {
                    // Modify item.formData with Chunk ID
-                   item.formData[0].chunkID = i;
-                   this[ transport ](item, item.blobs[i], i);
+                   console.log('chunk ID sent', i + 1);
+                   item.formData[0].chunkID = i + 1;
+                   this[ transport ](item, item.blobs[i]);
                 }
 
             };
@@ -187,13 +189,13 @@ module
                 this.isUploading = true;
                 //this[transport](item);
 
-                item.formData[0].nChunks = item.blobs.length;
-                item.formData[0].fileName = item.file.name;
-                item.formData[0].errorChunk = true;
+                // item.formData[0].nChunks = item.blobs.length;
+                // item.formData[0].fileName = item.file.name;
+                // item.formData[0].errorChunk = true;
                 for(var i = 0; i < chunksFailed.length; i += 1) {
                    var chunkID = chunksFailed[i];
                    item.formData[0].chunkID = chunkID;
-                   this[ transport ](item, item.blobs[chunkID], chunkID);
+                   this[ transport ](item, item.blobs[chunkID]);
                 }
 
             };
@@ -499,12 +501,12 @@ module
              * @param {FileItem} item
              * @private
              */
-            FileUploader.prototype._xhrTransport = function(item, blob, chunkID) {
+            FileUploader.prototype._xhrTransport = function(item, blob) {
                 var xhr = item._xhr = new XMLHttpRequest();
                 var form = new FormData();
                 var that = this;
 
-                if (chunkID === 0){
+                if (item.formData[0].chunkID === 0){
                   // Fired only when the first blob is being uploaded
                   that._onBeforeUploadItem(item);
                 }
@@ -519,7 +521,7 @@ module
                 //form.append(item.alias, item._file);
                 // item.alias = 'file'. Since we are uploading blobs, need to be changed
                 form.append('blob', blob.chunk);
-                //form.append('blobID', chunkID);
+                //form.append('chunkID', chunkID);
 
                 xhr.upload.onprogress = function(event) {
                     //var progress = Math.round(event.lengthComputable ? event.loaded * 100 / event.total : 0);
@@ -532,20 +534,25 @@ module
                     var response = that._transformResponse(xhr.response);
                     var gist = that._isSuccessCode(xhr.status) ? 'Success' : 'Error';
                     // Only when all the blobs are being uploaded, it can be sucess
-                    console.log(item.blobsUploaded.length, item.blobs.length);
-                    if ((item.blobsUploaded.length + 1) === item.blobs.length){
-                      console.log('completed item');
-                      var method = '_on' + gist + 'Item';
-                      that[method](item, response, xhr.status, headers);
-                      that._onCompleteItem(item, response, xhr.status, headers);
+                    console.log(item.blobsUploaded.length + 1, item.blobs.length);
+                    //if (item.blobsUploaded.length + 1 === item.blobs.length){
+                    //if (response.state === 'Success'){
+                    if (response.files_after.length === item.blobs.length){
+                      console.log('completed item', item.blobsUploaded, response);
+
+                      var method = '_xhrTransportMerge';
+                      that[method](item, item.blobs.length);
+                      //that._onCompleteItem(item, response, xhr.status, headers);
+
                     }else{
                       // Chunk uploaded
                       if (gist === 'Error'){
                         console.log('chunk error');
-                        item.blobsFailed.push(chunkID);
+                        item.blobsFailed.push(response.chunkID);
                         that._onErrorChunk(item, response, xhr.status, headers);
                       }else{
-                        item.blobsUploaded.push(chunkID);
+                        console.log('Chunk uploaded', response);
+                        item.blobsUploaded.push(response.chunkID);
                         that._onCompleteChunk(item, response, xhr.status, headers);
                       }
                     }
@@ -553,8 +560,6 @@ module
                 };
 
                 xhr.onerror = function() {
-                    // TODO: implement onErrorChunk
-                    console.log('Chunk error: client');
                     var headers = that._parseHeaders(xhr.getAllResponseHeaders());
                     var response = that._transformResponse(xhr.response);
                     that._onErrorItem(item, response, xhr.status, headers);
@@ -562,7 +567,6 @@ module
                 };
 
                 xhr.onabort = function() {
-                    // TODO: implement onAbortChunk//onCancel
                     var headers = that._parseHeaders(xhr.getAllResponseHeaders());
                     var response = that._transformResponse(xhr.response);
                     that._onCancelItem(item, response, xhr.status, headers);
@@ -580,6 +584,75 @@ module
                 xhr.send(form);
                 this._render();
             };
+
+
+
+
+            /**
+             * The XMLHttpRequest transport
+             * @param {FileItem} item
+             * @private
+             */
+            FileUploader.prototype._xhrTransportMerge = function(item) {
+                var xhr = item._xhr = new XMLHttpRequest();
+                var form = new FormData();
+                var that = this;
+
+                // Send metadata to upload
+                angular.forEach(item.formData, function(obj) {
+                    angular.forEach(obj, function(value, key) {
+                        form.append(key, value);
+                    });
+                });
+
+                form.append(item.alias, item._file);
+                form.append('blobs', item.blobs.length);
+
+                xhr.onload = function() {
+                    var headers = that._parseHeaders(xhr.getAllResponseHeaders());
+                    var response = that._transformResponse(xhr.response);
+                    console.log('merged', response);
+                    var gist = that._isSuccessCode(xhr.status) ? 'Success' : 'Error';
+
+                    var method = '_on' + gist + 'Item';
+                    that[method](item, response, xhr.status, headers);
+                    that._onCompleteItem(item, response, xhr.status, headers);
+
+
+                };
+
+                xhr.onerror = function() {
+                    console.log('error merging');
+                    var headers = that._parseHeaders(xhr.getAllResponseHeaders());
+                    var response = that._transformResponse(xhr.response);
+                    // that._onErrorItem(item, response, xhr.status, headers);
+                    // that._onCompleteItem(item, response, xhr.status, headers);
+                };
+
+                xhr.onabort = function() {
+                    console.log('aborting merging');
+                    var headers = that._parseHeaders(xhr.getAllResponseHeaders());
+                    var response = that._transformResponse(xhr.response);
+                    // that._onCancelItem(item, response, xhr.status, headers);
+                    // that._onCompleteItem(item, response, xhr.status, headers);
+                };
+
+                xhr.open(item.method, item.formData[0].merge, true);
+
+                xhr.withCredentials = item.withCredentials;
+
+                angular.forEach(item.headers, function(value, name) {
+                    xhr.setRequestHeader(name, value);
+                });
+
+                xhr.send(form);
+                this._render();
+            };
+
+
+
+
+
             /**
              * The IFrame transport
              * @param {FileItem} item
